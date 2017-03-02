@@ -34,12 +34,17 @@ var Adapter = module.exports = function(config) {
   MongoClient.connect(url, function(err, database) {
     if (err) {throw err; }
     that.db = database;
-    
+
     // Create single key indexes for username and email adress so they're both unique and faster to find
     // @see http://docs.mongodb.org/manual/core/index-single/
-    database.collection(that.collection).createIndex({name:1},{unique:true});
+    // only use name key if they are unique
+    if(config.uniqueName) {
+      database.collection(that.collection).createIndex({name:1},{unique:true});
+    } else {
+      database.collection(that.collection).dropIndex({name:1});
+    }
     database.collection(that.collection).createIndex({email:1},{unique:true});
-    
+
     // This would create a compound index
     // @see http://docs.mongodb.org/manual/core/index-compound/
     // database.collection(that.collection).createIndex({name:1, email:1},{unique:true});
@@ -74,7 +79,7 @@ var Adapter = module.exports = function(config) {
  * @param {String} pw - Plain text user password
  * @param {Function} done - Callback function `function(err, user){}`
  */
-Adapter.prototype.save = function(name, email, pw, done) {
+Adapter.prototype.save = function(name, email, pw, extra, done) {
   var that = this;
 
   var now = moment().toDate();
@@ -89,6 +94,11 @@ Adapter.prototype.save = function(name, email, pw, done) {
     signupTokenExpires: future,
     failedLoginAttempts: 0
   };
+
+  // insert extra if required
+  if(that.config.useExtra) {
+    user.extra = extra;
+  }
 
   // create salt and hash
   pwd.hash(pw, function(err, salt, hash) {
@@ -128,6 +138,7 @@ Adapter.prototype.save = function(name, email, pw, done) {
  * @param {Function} done - Callback function `function(err, user){}`
  */
 Adapter.prototype.find = function(match, query, done) {
+  console.log("qry", query)
   var qry = {};
   qry[match] = query;
   this.db.collection(this.collection).findOne(qry, done);
