@@ -32,6 +32,7 @@ var Adapter = module.exports = function(config) {
   // create connection as soon as module is required and share global db object
   var that = this;
   MongoClient.connect(url, function(err, database) {
+  console.log(url)
     if (err) {throw err; }
     that.db = database;
 
@@ -138,9 +139,14 @@ Adapter.prototype.save = function(name, email, pw, extra, done) {
  * @param {Function} done - Callback function `function(err, user){}`
  */
 Adapter.prototype.find = function(match, query, done) {
-  console.log("qry", query)
   var qry = {};
-  qry[match] = query;
+
+  if(this.config.caseInsensitiveFields.find(v => v === match) ) {
+    qry[match] = {$regex:'^' + query.replace(/\./g,'\\.') + '$', $options:'i'};
+  } else {
+    qry[match] = query;
+  }
+
   this.db.collection(this.collection).findOne(qry, done);
 };
 
